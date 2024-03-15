@@ -90,7 +90,10 @@ def load_raw_data(data_path, raw_type, flip=False):
     if raw_type == 0: # for fits
         print(f"Processing {colorstr('bold', 'FITS')} file...")
         hdu_list = fits.open(data_path)
-        data = hdu_list['SCI'].data.astype(np.float32)
+        try:
+            data = hdu_list['SCI'].data.astype(np.float32)
+        except:    
+            data = hdu_list['PRIMARY'].data.astype(np.float32)
     if raw_type == 1: # for npy
         print(f"Processing {colorstr('bold', 'npy')} file...")
         data = np.load(data_path)
@@ -255,9 +258,12 @@ def run(
         vid_stride=1,  # video frame-rate stride
         ##########################################
         raw_type=None, # 0 means FITS, 1 means npy
-        ##########################################
         yologc_weight='./pretrain_weight/later_train_weight/YOLOGC_n.pt',
         out_filter='Linear',
+        large_img="False",
+        debug="False",
+        ##########################################
+        
 ):
     ##################################################################################################
     """ 
@@ -282,20 +288,19 @@ def run(
             assert False, 'No npy files in the folder'
 
     for index in range(len(npy_path)): # loop through whole npy files (full FITS files)
+
         # initialize the timer
         t0 = time.time()
 
         # create a temp folder to save the parts of processing npy files
-        temp_sub_folder_i = os.path.join(project, 'img_{}'.format(index))
+        temp_sub_folder_i = os.path.join(project, name, 'img_{}'.format(index))
+        # print(temp_sub_folder_i) # -> ./runs/detect/img_0
+        
         create_folder(temp_sub_folder_i)
 
         # create label temp folder to save the parts
         temp_label_sub_i = os.path.join(temp_sub_folder_i, 'labels')
         create_folder(temp_label_sub_i)
-
-        # create temp folder to save grad-cam's results
-        temp_grad_sub_i = os.path.join(temp_sub_folder_i, 'grads')
-        create_folder(temp_grad_sub_i)
 
         temp_folder = os.path.join(temp_sub_folder_i, 'temp_files')
         create_folder(temp_folder)
@@ -307,8 +312,12 @@ def run(
         subregion_size = (imgsz[0], imgsz[1])
         # Specify the output folder
         output_folder = temp_folder
-        # Crop the sub-regions and save them into the folder
-        crop_subregions(original_image, subregion_size, output_folder)
+        
+        # print(f"debug = {debug} bool = {bool(debug)}")
+        # print(f'Large image = {large_img} bool = {bool(large_img)}')
+        if debug == "False":
+            # Crop the sub-regions and save them into the folder
+            crop_subregions(original_image, subregion_size, output_folder)
 
         source = temp_folder
         image_name = os.path.basename(npy_path[index]).split('.')[0]
@@ -323,7 +332,9 @@ def run(
 
         # Directories
         save_dir = increment_path(Path(project) / name, exist_ok=exist_ok)  # increment run
-        (save_dir / 'labels' if save_txt else save_dir).mkdir(parents=True, exist_ok=True)  # make dir
+        ##################################################################################################
+        # (save_dir / 'labels' if save_txt else save_dir).mkdir(parents=True, exist_ok=True)  # make dir
+        ##################################################################################################
 
         # Load model
         device = select_device(device)
@@ -363,8 +374,11 @@ def run(
         seen, windows, dt = 0, [], (Profile(), Profile(), Profile())
         
         for path, im, im0s, vid_cap, s in dataset:
-
             with dt[0]:
+                if debug == "True":
+                    print(colorstr('bold', 'Skip cropping'))
+                    break
+                
                 # im = torch.from_numpy(im).to(model.device)
                 ###############################################
                 im_copy = im.copy()
@@ -496,7 +510,10 @@ def run(
             LOGGER.info(f"{s}{'' if len(det) else '(no detections), '}{dt[1].dt * 1E3:.1f}ms")
 
         # Print results
-        t = tuple(x.t / seen * 1E3 for x in dt)  # speeds per image
+        try:
+            t = tuple(x.t / seen * 1E3 for x in dt)  # speeds per image
+        except:
+            t = tuple(x.t / 1 * 1E3 for x in dt)  # speeds per image
         LOGGER.info(f'Speed: %.1fms pre-process, %.1fms inference, %.1fms NMS per image at shape {(1, 3, *imgsz)}' % t)
         if save_txt or save_img:
             s = f"\n{len(list(save_dir.glob('labels/*.txt')))} labels saved to {save_dir / 'labels'}" if save_txt else ''
@@ -513,20 +530,30 @@ def run(
         create_folder(export_full_image_path)
 
         # output_image, coor_and_label = combine_subregions(temp_sub_processed, str(save_dir) + '/labels', original_image.shape, subregion_size)
-        output_image, coor_and_label = combine_subregions(temp_sub_processed, temp_label_sub_i, original_image.shape, subregion_size)
+        try:
+            output_image, coor_and_label = combine_subregions(temp_sub_processed, temp_label_sub_i, original_image.shape, subregion_size)
+        except:
+            temp_sub_processed = os.path.join(temp_sub_folder_i, 'temp_sub_processed')
+            output_image, coor_and_label = combine_subregions(temp_sub_processed, temp_label_sub_i, original_image.shape, subregion_size)
+        
         # save coor_and_label with txt format
         np.savetxt(export_full_image_path + image_name + '.txt', coor_and_label, fmt='%s')
         
         # save the combined image with .npy and .jpg format
         np.save(export_full_image_path + image_name + '.npy', output_image)
-        # export with matplotlib
-        plt.imsave(export_full_image_path + image_name + '.jpg', output_image, cmap='gray')
-
-        # plot bbox on the combined image
-        image_as_jpg = cv2.imread(export_full_image_path + image_name + '.jpg')
-        image_as_jpg = cv2.cvtColor(image_as_jpg, cv2.COLOR_BGR2GRAY)
-        image_as_jpg = cv2.cvtColor(image_as_jpg, cv2.COLOR_BGR2RGB)
-        plot_bbox(image_as_jpg, coor_and_label, export_full_image_path + image_name + '_detected' + '.jpg')
+        
+        if large_img == "False":
+            # export with matplotlib
+            plt.imsave(export_full_image_path + image_name + '.jpg', output_image, cmap='gray')
+            image_as_jpg = cv2.imread(export_full_image_path + image_name + '.jpg')
+            image_as_jpg = cv2.cvtColor(image_as_jpg, cv2.COLOR_BGR2GRAY)
+            image_as_jpg = cv2.cvtColor(image_as_jpg, cv2.COLOR_BGR2RGB)
+            plot_bbox(image_as_jpg, coor_and_label, export_full_image_path + image_name + '_detected' + '.jpg')
+        else:
+            print("Skip plotting to evade memory error")
+            # print(type(output_image)) -> numpy array
+            image_as_jpg = output_image
+        del output_image # delete the output_image to save memory
         
         # remove temp files in temp_folder
         remove_folder(temp_folder)
@@ -534,9 +561,9 @@ def run(
         remove_folder(temp_sub_processed)
         # remove labels folder in testing after end of each image
         remove_folder(temp_label_sub_i)
-
-        # remove labels folder in testing after end of each image
-        remove_folder(save_dir)
+        
+        # # remove labels folder in testing after end of each image
+        # remove_folder(save_dir) -> to evade removing the not existing folder
         
         config_np = np.array([original_image.shape, subregion_size])
         np.save(temp_sub_folder_i+'/config.npy', config_np)
@@ -546,12 +573,20 @@ def run(
 
     requir_grad_cam = False
     if requir_grad_cam == True:
+        # create temp folder to save grad-cam's results
+        temp_grad_sub_i = os.path.join(temp_sub_folder_i, 'grads')
+        create_folder(temp_grad_sub_i)
+        
         os.system('python grad_cam.py') # Run grad cam for every directory
 
 def parse_opt():
     parser = argparse.ArgumentParser()
     ###########################################################################################
     parser.add_argument('--raw-type', type=int, default=None, help='0 means FITS, 1 means npy')
+    parser.add_argument('--yologc_weight', type=str, default='./best_weights/FE_stacked_convns_s_3.pt', help='yoda model path or triton URL')
+    parser.add_argument('--out_filter', type=str, default='Linear', help='Output filter of detection') 
+    parser.add_argument('--large-img', type=str, default="False", help='Large image or not, for skip plotting to evade memory error')
+    parser.add_argument('--debug', type=str, default="False", help='Debug mode, skip cropping')
     ###########################################################################################
     parser.add_argument('--weights', nargs='+', type=str, default=ROOT / 'yolov5s.pt', help='model path or triton URL')
     parser.add_argument('--source', type=str, default=ROOT / 'data/images', help='file/dir/URL/glob/screen/0(webcam)')
@@ -580,9 +615,7 @@ def parse_opt():
     parser.add_argument('--half', action='store_true', help='use FP16 half-precision inference')
     parser.add_argument('--dnn', action='store_true', help='use OpenCV DNN for ONNX inference')
     parser.add_argument('--vid-stride', type=int, default=1, help='video frame-rate stride')
-
-    parser.add_argument('--yologc_weight', type=str, default='./best_weights/FE_stacked_convns_s_3.pt', help='yoda model path or triton URL')
-    parser.add_argument('--out_filter', type=str, default='Linear', help='Output filter of detection') 
+    
     opt = parser.parse_args()
     opt.imgsz *= 2 if len(opt.imgsz) == 1 else 1  # expand
     print_args(vars(opt))
