@@ -13,6 +13,41 @@ cd YOLO-GC
 pip install -r requirements.txt
 ```
 
+Training script
+```bash
+python train.py \
+    --img {image_size} \
+    --epochs {num_epochs} \
+    --batch-size {batch_size} \
+    --data {dataset_config_path} \
+    --weights {pretrained_weights} \
+    --hyp {hyperparameter_file} \
+    --cfg {model_config} \
+    --device {device_id} \
+    --exist-ok \
+    --patience {early_stopping_patience} \
+    --name {run_name} \
+    --project {output_directory} \
+    --fe_models {feature_extractor}
+```
+Training Parameters
+
+| Parameter | Description | Example/Default |
+|-----------|-------------|-----------------|
+| `--img` | Input image size | 1024 |
+| `--epochs` | Number of training epochs | 100 |
+| `--batch-size` | Number of images per training batch | 16 |
+| `--data` | Path to dataset configuration file | `data/data.yaml` |
+| `--weights` | Pre-trained weights | Leave '' for training from scratch |
+| `--hyp` | Hyperparameter configuration file | `data/hyp.with-mosaic.yaml` |
+| `--cfg` | Model configuration | `models/yolov5n.yaml` |
+| `--device` | GPU/CPU device ID | `0` for first GPU, `cpu` for CPU |
+| `--exist-ok` | Allow overwriting existing training directories | Enabled by default |
+| `--patience` | Early stopping patience | `0` to disable |
+| `--name` | Name for the training run | `scratch` |
+| `--project` | Output directory for training results | Specify your project path |
+| `--fe_models` | Feature extractor module | Depends on your specific configuration, ie. 'FE_Add', 'FE_AddNS', 'FE_Conv', 'FE_ConvNS', 'FE_OneR' |
+
 ## Citation
 ```
 @inproceedings{
