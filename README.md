@@ -48,6 +48,46 @@ Training Parameters
 | `--project` | Output directory for training results | Specify your project path |
 | `--fe_models` | Feature extractor module | Depends on your specific configuration, ie. 'FE_Add', 'FE_AddNS', 'FE_Conv', 'FE_ConvNS', 'FE_OneR' |
 
+Detection Script
+```bash
+python detect_modify.py \
+    --imgsz {image_size} \
+    --source {source_directory} \
+    --conf-thres {confidence_threshold} \
+    --iou-thres {iou_threshold} \
+    --weights {model_weights} \
+    --save-conf \
+    --save-txt \
+    --device {device_id} \
+    --exist-ok \
+    --raw-type {raw_type} \
+    --name {run_name} \
+    --project {output_directory} \
+    --yoda_weights {yoda_weights_path} \
+    --out_filter {output_filter}
+```
+
+Detection Parameters
+To perform inference with the pre-trined model, run the following command:
+
+| Parameter        | Description                                 | Example/Default                          |
+|------------------|---------------------------------------------|------------------------------------------|
+| `--imgsz`        | Input image size                           | `1024`                                   |
+| `--source`       | Path to input source directory             | `../input_data/folder/`                 |
+| `--conf-thres`   | Confidence threshold for predictions       | `0.25`                                   |
+| `--iou-thres`    | Intersection-over-Union threshold          | `0.45`                                   |
+| `--weights`      | Path to the YOLO model weights file            | `./weights/yolo_best_n.pt`          |
+| `--save-conf`    | Save confidence score in output            | Enabled                                  |
+| `--save-txt`     | Save detection results to text files       | Enabled                                  |
+| `--device`       | GPU/CPU device ID                          | `0` for first GPU, `cpu` for CPU         |
+| `--exist-ok`     | Allow overwriting existing directories     | Enabled                                  |
+| `--raw-type`     | Specify the input data type               | `0` means FITS and 1 means .npy           |
+| `--name`         | Name for the detection run                | `testing`                                |
+| `--project`      | Output directory for detection results     | `./runs/detect`                          |
+| `--yoda_weights` | Path to YODA feature extractor weights     | `./weights/FE_stacked_convns_s_3.pt`|
+| `--out_filter`   | Output filter for final results            | `Linear`                                 |
+
+
 ## Citation
 ```
 @inproceedings{
