@@ -2,6 +2,11 @@
 ## Abstract
 Globular clusters (GC) are crucial for understanding galaxy formation and evolution. However, identifying them in large imagery datasets is a time-consuming task. This prompts the development of an automated GC detection algorithm. Although GC detection is fundamentally an object detection problem, the state-of-the-art object detection algorithms are unable to produce accurate results. Motivated by how GCs are identified by astronomers, we propose a deep neural network that fuses multiple views of raw imaging data and learns a better representation of the input image. The proposed network is then combined with YOLO object detection algorithm resulting in YOLO for Globular Cluster detection (YOLO-GC) model. Experimental results based on a real catalog of GCs in the M33 Galaxy showed that the proposed multi-view representation learning technique helps improve detection performance.
 
+<div align="center">
+  <img src="pictures/grad_cam_results.png" alt="Alt text" width="600"/>
+</div>
+
+
 ## Get starting
 For details on data preprocessing, you can follow this link to execute: [Data preprocessing](https://github.com/administer03/Preprocessing-YOLO-GC)
 
